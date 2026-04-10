@@ -1,3 +1,9 @@
+# -*- coding: utf-8 -*-
+import sys
+import io
+
+# 强制使用UTF-8编码
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 """
 实验1：测量RPC提供商是否泄露客户端IP地址
 方法论：
