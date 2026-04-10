@@ -1,0 +1,160 @@
+# RPC Privacy Leakage Measurement - Specification
+# 符合课程要求的规格驱动开发文档
+
+project:
+  name: "RPC Privacy Leakage Measurement"
+  version: "1.0.0"
+  description: |
+    测量Web3 RPC端点的隐私泄露风险，包括IP泄露、地址关联性和跨提供商一致性。
+
+# ============================================================
+# 接口定义
+# ============================================================
+interfaces:
+  RPCClient:
+    description: "统一的RPC客户端封装"
+    methods:
+      - name: send_request
+        inputs:
+          - method: string
+          - params: list
+          - proxy: string (optional)
+        outputs:
+          - response: dict
+        preconditions:
+          - "rpc_url is valid HTTP/HTTPS URL"
+          - "method is valid JSON-RPC method"
+        postconditions:
+          - "response contains 'jsonrpc' field"
+          - "request is logged if enable_logging=True"
+      
+      - name: get_balance
+        inputs:
+          - address: string (20-byte hex)
+          - block: string (default: 'latest')
+        outputs:
+          - balance: int (wei)
+        example: |
+          client.get_balance("0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045")
+          # Returns: 1234567890000000000
+  
+  FingerprintAnalyzer:
+    description: "钱包指纹分析器"
+    inputs:
+      - wallet_requests: List[RequestLog]
+    outputs:
+      - similarity_matrix: np.ndarray
+      - linkage_possible: boolean
+    acceptance_criteria: |
+      Given 两个不同钱包的请求日志
+      When 提取特征并计算相似度
+      Then 同钱包内相似度应 > 跨钱包相似度 + 0.1 才认为存在关联风险
+
+# ============================================================
+# 不变量 (Invariants)
+# ============================================================
+invariants:
+  - name: "network_stability"
+    description: "测量期间网络条件应相对稳定"
+    constraint: "延迟变化 < 20% 在一个测试周期内"
+    validation: "通过多次基准测试验证"
+  
+  - name: "request_minimum"
+    description: "每个RPC端点必须有足够的请求样本"
+    constraint: "≥ 100 个有效请求每个测量单元"
+  
+  - name: "address_diversity"
+    description: "测试地址应来自不同来源"
+    constraint: "至少3个不同控制级别的地址"
+
+# ============================================================
+# 验收标准 (Acceptance Criteria - Given/When/Then)
+# ============================================================
+acceptance_criteria:
+  - id: "AC-IP-01"
+    scenario: "检测RPC是否记录客户端IP"
+    given: "RPC端点是公开的，客户端通过代理A发送请求"
+    when: "发送eth_getBalance请求"
+    then: "RPC响应中不应包含客户端IP地址"
+  
+  - id: "AC-IP-02"
+    scenario: "检测间接IP泄露"
+    given: "同一钱包通过不同代理发送请求"
+    when: "分析响应时间模式"
+    then: "不同代理的响应时间差异CV应 < 0.3，否则存在间接泄露"
+  
+  - id: "AC-FP-01"
+    scenario: "检测地址关联性"
+    given: "两个不同钱包地址"
+    when: "通过同一RPC端点发送相似的请求序列"
+    then: "特征相似度不应显著高于随机钱包对"
+  
+  - id: "AC-CONS-01"
+    scenario: "跨提供商一致性"
+    given: "多个RPC提供商"
+    when: "查询同一区块的同一账户"
+    then: "所有提供商应返回相同结果，或多数派共识存在"
+
+# ============================================================
+# 威胁 → 测试映射
+# ============================================================
+threat_test_mapping:
+  - threat: "IP地址关联"
+    description: "RPC提供商将IP与钱包地址关联存储"
+    test_file: "src/measurement/ip_leak_test.py"
+    test_function: "IPLeakMeasurer.measure_single_rpc"
+    expected_outcome: "无法通过IP或时序特征关联"
+  
+  - threat: "跨钱包关联"
+    description: "同一用户的不同钱包可通过请求模式关联"
+    test_file: "src/measurement/fingerprint_test.py"
+    test_function: "FingerprintAnalyzer.run_linkage_experiment"
+    expected_outcome: "同钱包与跨钱包相似度无显著差异"
+  
+  - threat: "数据不一致/审查"
+    description: "RPC提供商返回篡改或不一致的数据"
+    test_file: "src/measurement/consistency_test.py"
+    test_function: "ConsistencyTester.run_full_test"
+    expected_outcome: "所有提供商返回一致结果，无离群者"
+
+# ============================================================
+# 实验参数
+# ============================================================
+experiment_parameters:
+  ip_leak_test:
+    iterations_per_proxy: 10
+    proxies_required: 3
+    test_duration_minutes: 30
+  
+  fingerprint_test:
+    requests_per_wallet: 50
+    num_wallets: 3
+    feature_dimensions: 12
+  
+  consistency_test:
+    test_blocks: ["latest", "0x1000000", "0x1500000"]
+    test_addresses: 3
+    timeout_seconds: 30
+
+# ============================================================
+# 数据格式
+# ============================================================
+data_schemas:
+  request_log:
+    type: object
+    properties:
+      timestamp: number
+      method: string
+      params: string
+      response_time_ms: number
+      proxy_used: string (optional)
+      rpc_url: string
+      request_id: string
+  
+  ip_leak_result:
+    type: object
+    properties:
+      rpc_name: string
+      has_direct_leak: boolean
+      indirect_leak_score: number
+      confidence: number
