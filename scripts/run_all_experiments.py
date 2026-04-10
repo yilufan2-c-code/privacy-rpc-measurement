@@ -1,3 +1,8 @@
+# -*- coding: utf-8 -*-
+import sys
+import io
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+
 #!/usr/bin/env python3
 """
 一键运行所有实验
