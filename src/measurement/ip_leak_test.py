@@ -18,8 +18,8 @@ from utils.proxy_manager import ProxyManager, get_default_proxy_manager
 
 # 配置：主流的RPC端点（需要替换为实际API Key）
 RPC_ENDPOINTS = {
-    "Infura": "https://mainnet.infura.io/v3/YOUR_INFURA_KEY",
-    "Alchemy": "https://eth-mainnet.g.alchemy.com/v2/YOUR_ALCHEMY_KEY",
+    "Infura": "https://mainnet.infura.io/v3/010a6b4946bb486b98f75a50d7b5a1ef",
+    "Alchemy": "https://eth-mainnet.g.alchemy.com/v2/4rsua1CyrIDRKW8UEE2-b",
     "Ankr": "https://rpc.ankr.com/eth",
     "Cloudflare": "https://cloudflare-eth.com",
     "PublicNode": "https://ethereum.publicnode.com",
