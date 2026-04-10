@@ -1,3 +1,7 @@
+# -*- coding: utf-8 -*-
+import sys
+import io
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 """
 实验2：测量是否可以通过请求模式关联同一用户的不同钱包地址
 
