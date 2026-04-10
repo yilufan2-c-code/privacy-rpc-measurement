@@ -138,4 +138,88 @@ class ConsistencyTester:
             for k, h in hashes.items():
                 if h not in unique_hashes:
                     unique_hashes[h] = []
-                unique_hashes[h].
+                unique_hashes[h].append(k)
+            
+            majority_value = max(unique_hashes.items(), key=lambda x: len(x[1]))
+            majority = majority_value[1]
+            outliers = [k for k in successful.keys() if k not in majority]
+            
+            return {
+                'consensus_reached': len(majority) > len(successful) / 2,
+                'outliers': outliers,
+                'majority_providers': majority,
+                'majority_hash': majority_value[0],
+                'consensus_type': 'block'
+            }
+        
+        return {'consensus_reached': False, 'outliers': []}
+    
+    def run_full_test(self) -> List[Dict]:
+        """运行完整的测试套件"""
+        print("=" * 60)
+        print("Cross-Provider Consistency Test")
+        print("=" * 60)
+        
+        self.initialize_clients()
+        
+        if not self.clients:
+            print("\n❌ No RPC clients initialized. Please configure API keys.")
+            return []
+        
+        all_analyses = []
+        
+        # 测试1：余额一致性
+        test_address = "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045"
+        balance_results = self.test_balance_consistency(test_address)
+        balance_analysis = self.analyze_consistency(balance_results)
+        balance_analysis['test_type'] = 'balance'
+        balance_analysis['raw_results'] = balance_results
+        all_analyses.append(balance_analysis)
+        
+        # 测试2：区块一致性
+        for block in TEST_BLOCKS[:2]:
+            block_results = self.test_block_consistency(block)
+            block_analysis = self.analyze_consistency(block_results)
+            block_analysis['test_type'] = f'block_{block}'
+            block_analysis['raw_results'] = block_results
+            all_analyses.append(block_analysis)
+        
+        return all_analyses
+
+def main():
+    """主函数"""
+    print("Cross-Provider Consistency Test Tool")
+    print("=" * 40)
+    print("\n⚠️  IMPORTANT:")
+    print("1. Replace YOUR_INFURA_KEY and YOUR_ALCHEMY_KEY")
+    print("2. Some public endpoints may have rate limits")
+    
+    tester = ConsistencyTester()
+    results = tester.run_full_test()
+    
+    # 保存结果
+    output_file = 'data/raw/consistency_results.json'
+    os.makedirs(os.path.dirname(output_file), exist_ok=True)
+    
+    with open(output_file, 'w') as f:
+        json.dump(results, f, indent=2)
+    
+    print("\n" + "=" * 60)
+    print("RESULTS SUMMARY")
+    print("=" * 60)
+    
+    for result in results:
+        if result.get('consensus_reached', False):
+            status = "✅ CONSENSUS"
+            outliers = result.get('outliers', [])
+            if outliers:
+                status = f"⚠️  PARTIAL - Outliers: {outliers}"
+        else:
+            status = "🔴 NO CONSENSUS"
+        
+        print(f"{result.get('test_type', 'unknown')}: {status}")
+    
+    print(f"\nDetailed results saved to {output_file}")
+
+if __name__ == "__main__":
+    main()
