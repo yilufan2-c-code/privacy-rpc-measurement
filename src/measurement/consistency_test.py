@@ -1,3 +1,7 @@
+# -*- coding: utf-8 -*-
+import sys
+import io
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 """
 实验3：测量不同RPC提供商返回数据的一致性
 
